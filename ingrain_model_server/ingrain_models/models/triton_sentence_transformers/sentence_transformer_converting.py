@@ -97,7 +97,8 @@ def onnx_transformer_model(
             model=wrapped_model,
             args=(dummy_input["input_ids"], dummy_input["attention_mask"]),
             f=output_path,
-            opset_version=20,
+            opset_version=24,
+            dynamo=False,
             input_names=["input_ids", "attention_mask"],
             output_names=["sentence_embedding"],
             dynamic_axes={

@@ -1,12 +1,15 @@
 import os
 import torch
 from torch import nn
-from torchvision.transforms import Compose, ToTensor
+from torchvision.transforms import Compose, ToTensor, Normalize
 from PIL import Image
 from io import BytesIO
 import base64
 from open_clip import CustomTextCLIP, CLIP
 from typing import Tuple, Any
+from ingrain_models.models.torchvision_transform_conversion import (
+    DynamoFriendlyNormalize,
+)
 from ingrain_models.models.triton_open_clip.open_clip_wrappers import (
     CLIPTextEncoderWrapper,
     CLIPImageEncoderWrapper,
@@ -25,11 +28,21 @@ from ingrain_common.common import (
 
 
 def decompose_clip_preprocess(preprocess: Compose) -> Tuple[Compose, nn.Sequential]:
-    to_tensor_index = preprocess.transforms.index(ToTensor)
+    to_tensor_index = next(
+        i for i, t in enumerate(preprocess.transforms) if isinstance(t, ToTensor)
+    )
     pre_tensor_transforms = Compose(
         transforms=preprocess.transforms[: to_tensor_index + 1]
     )
-    post_tensor_transforms = nn.Sequential(preprocess.transforms[to_tensor_index + 1 :])
+
+    post_tensor_operations = preprocess.transforms[to_tensor_index + 1 :]
+
+    # TODO: Might bring this back if dynamo works in future
+    # for i in range(len(post_tensor_operations)):
+    #     if isinstance(post_tensor_operations[i], Normalize):
+    #         post_tensor_operations[i] = DynamoFriendlyNormalize(mean=post_tensor_operations[i].mean, std=post_tensor_operations[i].std)
+
+    post_tensor_transforms = nn.Sequential(*post_tensor_operations)
     return pre_tensor_transforms, post_tensor_transforms
 
 
@@ -40,14 +53,10 @@ def convert_image_encoder_to_onnx(
     output_path: str,
 ) -> None:
 
-    to_tensor_index = next(
-        i for i, t in enumerate(preprocess.transforms) if isinstance(t, ToTensor)
+    pre_tensor_transforms, post_tensor_transforms = decompose_clip_preprocess(
+        preprocess
     )
-    model_with_baked_preprocess = CLIPImageEncoderWrapper(model, preprocess)
-
-    pre_tensor_transforms = Compose(
-        transforms=preprocess.transforms[: to_tensor_index + 1]
-    )
+    model_with_baked_preprocess = CLIPImageEncoderWrapper(model, post_tensor_transforms)
 
     model_with_baked_preprocess = model_with_baked_preprocess.eval()
 
@@ -58,7 +67,8 @@ def convert_image_encoder_to_onnx(
         image_dummy_input,
         output_path,
         export_params=True,
-        opset_version=20,
+        dynamo=False,
+        opset_version=24,
         input_names=["input"],
         output_names=["output"],
         dynamic_axes={"input": {0: "batch_size"}, "output": {0: "batch_size"}},
@@ -83,7 +93,8 @@ def convert_text_encoder_to_onnx(
         dummy_input,
         output_path,
         export_params=True,
-        opset_version=20,
+        dynamo=False,
+        opset_version=24,
         input_names=["input"],
         output_names=["output"],
         dynamic_axes={"input": {0: "batch_size"}, "output": {0: "batch_size"}},

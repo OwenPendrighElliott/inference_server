@@ -1,42 +1,44 @@
-# Use the base image specified in the build argument
-FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim
+# -------- Stage 1: Build / dependency install --------
+FROM python:3.13-slim-trixie AS builder
 
-# Install the required packages
-RUN apt-get update && apt-get install -y cmake build-essential
+RUN apt-get update && apt-get install -y curl ca-certificates && rm -rf /var/lib/apt/lists/*
 
-# Set the working directory
+# Install uv
+ADD https://astral.sh/uv/install.sh /uv-installer.sh
+RUN sh /uv-installer.sh && rm /uv-installer.sh
+ENV PATH="/root/.local/bin:$PATH"
+
 WORKDIR /app
 
-RUN mkdir -p /app/model_cache/
+# Copy lock + project config
+COPY uv.lock pyproject.toml ./
 
-ENV HF_HOME=/app/model_cache/
-
-# Install Python dependencies
-ENV UV_COMPILE_BYTECODE=1
-ENV UV_LINK_MODE=copy
+# Cache mount for uv
 RUN --mount=type=cache,target=/root/.cache/uv \
-    --mount=type=bind,source=uv.lock,target=uv.lock \
-    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    uv sync --locked --no-install-project --no-dev
+    uv sync --locked --no-install-project
 
-# Copy the rest of the application code into the container
+# Copy full code
 COPY . /app
-COPY ./hello.sh /app/hello.sh
 
-# Create a virtual environment and install the dependencies
+# Install project + deps
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --locked --no-dev
+    uv sync --locked
 
+# -------- Stage 2: Runtime image --------
+FROM python:3.13-slim-trixie AS runtime
+
+WORKDIR /app
+
+# Copy only the environment (if uv created .venv) & code
+COPY --from=builder /app/.venv /app/.venv
+COPY --from=builder /app /app
+
+# Set PATH to the venv
 ENV PATH="/app/.venv/bin:$PATH"
 
-# Expose the required ports
+RUN mkdir -p /app/model_cache/
+ENV HF_HOME=/app/model_cache/
+
 EXPOSE 8686
 
-# Create the model repository directory
-RUN mkdir -p /app/model_repository
-
-# Ensure the inference server run script is executable
-RUN chmod +x /app/start.sh
-
-# Start the app
-CMD ["bash", "/app/start.sh"]
+CMD ["bash","/app/start.sh"]

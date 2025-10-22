@@ -4,7 +4,7 @@ from torchvision.transforms import Compose, ToTensor
 
 
 class TimmClassifierWrapper(nn.Module):
-    def __init__(self, visual: nn.Module, transforms: Compose):
+    def __init__(self, visual: nn.Module, transforms: nn.Sequential):
         """
         A wrapper that encapsulates the image encoder part of the CLIP model.
         """
@@ -12,15 +12,7 @@ class TimmClassifierWrapper(nn.Module):
 
         self.visual = visual
 
-        to_tensor_index = next(
-            i
-            for i, t in enumerate(transforms.transforms)
-            if isinstance(t, (ToTensor, MaybeToTensor, MaybePILToTensor))
-        )
-
-        self.tensor_transforms = Compose(
-            [t for t in transforms.transforms[to_tensor_index + 1 :]]
-        )
+        self.tensor_transforms = transforms
 
     def forward(self, image):
         """

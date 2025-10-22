@@ -51,7 +51,7 @@ class CLIPTextEncoderWrapper(nn.Module):
 
 
 class CLIPImageEncoderWrapper(nn.Module):
-    def __init__(self, visual: nn.Module, transforms: Compose):
+    def __init__(self, visual: nn.Module, transforms: nn.Sequential):
         """
         A wrapper that encapsulates the image encoder part of the CLIP model.
         """
@@ -59,13 +59,7 @@ class CLIPImageEncoderWrapper(nn.Module):
 
         self.visual = visual
 
-        to_tensor_index = next(
-            i for i, t in enumerate(transforms.transforms) if isinstance(t, ToTensor)
-        )
-
-        self.tensor_transforms = nn.Sequential(
-            *[t for t in transforms.transforms[to_tensor_index + 1 :]]
-        )
+        self.tensor_transforms = transforms
 
     def forward(self, image):
         """

@@ -1,13 +1,17 @@
 import os
 import torch
+from torch import nn
 from PIL import Image
 from io import BytesIO
-from torchvision.transforms import Compose, ToTensor
+from torchvision.transforms import Compose, ToTensor, Normalize
 from timm.data import MaybeToTensor, MaybePILToTensor
 import base64
 from ingrain_models.models.model_optimisation import (
     generate_tensorrt_config,
     optimize_onnx_model,
+)
+from ingrain_models.models.torchvision_transform_conversion import (
+    DynamoFriendlyNormalize,
 )
 from ingrain_models.models.triton_timm.timm_wrappers import TimmClassifierWrapper
 from ingrain_common.common import (
@@ -20,19 +24,35 @@ from ingrain_common.common import (
 from typing import Tuple, Any
 
 
-def convert_timm_to_onnx(
-    model: torch.nn.Module, image: Image.Image, preprocess: Compose, output_path: str
-) -> None:
+def decompose_timm_preprocess(preprocess: Compose) -> Tuple[Compose, nn.Sequential]:
     to_tensor_index = next(
         i
         for i, t in enumerate(preprocess.transforms)
         if isinstance(t, (ToTensor, MaybeToTensor, MaybePILToTensor))
     )
-    model_with_baked_preprocess = TimmClassifierWrapper(model, preprocess)
-
     pre_tensor_transforms = Compose(
         transforms=preprocess.transforms[: to_tensor_index + 1]
     )
+
+    post_tensor_operations = preprocess.transforms[to_tensor_index + 1 :]
+
+    # TODO: Might bring this back if dynamo works in future
+    # for i in range(len(post_tensor_operations)):
+    #     if isinstance(post_tensor_operations[i], Normalize):
+    #         post_tensor_operations[i] = DynamoFriendlyNormalize(mean=post_tensor_operations[i].mean, std=post_tensor_operations[i].std)
+
+    post_tensor_transforms = nn.Sequential(*post_tensor_operations)
+    return pre_tensor_transforms, post_tensor_transforms
+
+
+def convert_timm_to_onnx(
+    model: torch.nn.Module, image: Image.Image, preprocess: Compose, output_path: str
+) -> None:
+    pre_tensor_transforms, post_tensor_transforms = decompose_timm_preprocess(
+        preprocess
+    )
+    model_with_baked_preprocess = TimmClassifierWrapper(model, post_tensor_transforms)
+
     with torch.inference_mode():
         image_dummy_input = pre_tensor_transforms(image).unsqueeze(0)
 
@@ -41,7 +61,8 @@ def convert_timm_to_onnx(
             image_dummy_input,
             output_path,
             export_params=True,
-            opset_version=20,
+            opset_version=24,
+            dynamo=False,
             input_names=["input"],
             output_names=["output"],
             dynamic_axes={"input": {0: "batch_size"}, "output": {0: "batch_size"}},

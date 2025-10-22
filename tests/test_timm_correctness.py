@@ -67,7 +67,7 @@ def test_infer_timm_image():
     ingrain_embeddings = response.json()["probabilities"]
 
     model = timm.create_model(TIMM_MODEL, pretrained=True)
-    model = model.eval()
+    model.eval()
 
     data_config = timm.data.resolve_model_data_config(model)
     transforms = timm.data.create_transform(**data_config, is_training=False)

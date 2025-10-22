@@ -1,42 +1,53 @@
-# Use the base image specified in the build argument
-FROM ghcr.io/astral-sh/uv:python3.11-bookworm-slim
+# -------- Stage 1: Build / dependency install --------
+FROM python:3.11-slim-trixie AS builder
 
-# Install the required packages
-RUN apt-get update && apt-get install -y cmake build-essential
+# Install build tools
+RUN apt-get update \
+    && apt-get install -y curl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
-# Set the working directory
+# Install uv
+ADD https://astral.sh/uv/install.sh /uv-installer.sh
+RUN sh /uv-installer.sh && rm /uv-installer.sh
+ENV PATH="/root/.local/bin:$PATH"
+
 WORKDIR /app
 
-RUN mkdir -p /app/model_cache/
+# Copy only lockfile & pyproject for dependency install layer
+COPY uv.lock pyproject.toml ./
 
-ENV HF_HOME=/app/model_cache/
-
-# Install Python dependencies
-ENV UV_COMPILE_BYTECODE=1
-ENV UV_LINK_MODE=copy
+# Install dependencies (without installing project code) — good for caching
 RUN --mount=type=cache,target=/root/.cache/uv \
-    --mount=type=bind,source=uv.lock,target=uv.lock \
-    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
     uv sync --locked --no-install-project --no-dev
 
-# Copy the rest of the application code into the container
+# Copy application code
 COPY . /app
-COPY ./hello.sh /app/hello.sh
 
-# Create a virtual environment and install the dependencies
+# Install project + dependencies
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked --no-dev
 
-ENV PATH="/app/.venv/bin:$PATH"
+# -------- Stage 2: Runtime image --------
+FROM python:3.11-slim-trixie AS runtime
 
-# Expose the required ports
+WORKDIR /app
+
+# Copy only the environment (if uv created .venv) & code
+COPY --from=builder /app/.venv /app/.venv
+COPY --from=builder /app /app
+
+# Ensure PATH includes the venv
+ENV PATH="/app/.venv/bin:$PATH"
+ENV HF_HOME=/app/model_cache
+
+RUN mkdir -p /app/model_cache/
+ENV HF_HOME=/app/model_cache/
+
+# Expose port
 EXPOSE 8687
 
-# Create the model repository directory
-RUN mkdir -p /app/model_repository
+# Prepare model repository
+RUN mkdir -p /app/model_repository \
+    && chmod +x /app/start.sh
 
-# Ensure the inference server run script is executable
-RUN chmod +x /app/start.sh
-
-# Start the app
 CMD ["bash", "/app/start.sh"]

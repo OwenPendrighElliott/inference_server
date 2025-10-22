@@ -1,19 +1,19 @@
 [project]
 name = "ingrain-inference-server"
-version = "0.2.1"
+version = "0.2.2"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "certifi>=2025.8.3",
-    "fastapi==0.116.1",
+    "certifi>=2025.10.5",
+    "fastapi==0.119.1",
     "ftfy>=6.3.1",
     "orjson==3.11.3",
-    "pillow==11.3.0",
-    "pycurl==7.45.6",
-    "pydantic==2.11.7",
-    "tokenizers==0.22.0",
-    "tritonclient[grpc]>=2.60.0",
-    "uvicorn==0.35.0",
+    "pillow==12.0.0",
+    "pycurl==7.45.7",
+    "pydantic==2.12.3",
+    "tokenizers==0.22.1",
+    "tritonclient[grpc]>=2.61.0",
+    "uvicorn==0.38.0",
     "validators==0.35.0",
 ]

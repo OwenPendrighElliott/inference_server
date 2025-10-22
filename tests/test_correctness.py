@@ -66,8 +66,17 @@ def test_infer_text():
     ingrain_embeddings = response.json()["embeddings"]
 
     model = SentenceTransformer(SENTENCE_TRANSFORMER_MODEL)
+    model.eval()
     model_embeddings = model.encode([test_text])
 
+    print("Max abs diff:", np.max(np.abs(ingrain_embeddings - model_embeddings)))
+    print("Mean abs diff:", np.mean(np.abs(ingrain_embeddings - model_embeddings)))
+    print(
+        "Allclose (1e-5):", np.allclose(ingrain_embeddings, model_embeddings, atol=1e-5)
+    )
+    print(
+        "Allclose (1e-4):", np.allclose(ingrain_embeddings, model_embeddings, atol=1e-4)
+    )
     assert np.allclose(ingrain_embeddings, model_embeddings, atol=1e-5)
 
 
@@ -119,7 +128,7 @@ def test_infer_openclip_image():
     ingrain_embeddings = response.json()["embeddings"]
 
     model, _, preprocess = open_clip.create_model_and_transforms(OPENCLIP_MODEL)
-
+    model.eval()
     img = Image.open(BytesIO(base64.b64decode(test_image.split(",")[1]))).convert("RGB")
     processed_im = preprocess(img).unsqueeze(0)
     model_embeddings = model.encode_image(processed_im)
