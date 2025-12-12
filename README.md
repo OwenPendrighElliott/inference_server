@@ -45,7 +45,7 @@ services:
     volumes:
       - ./model_repository:/app/model_repository 
   triton:
-    image: nvcr.io/nvidia/tritonserver:25.08-py3
+    image: nvcr.io/nvidia/tritonserver:25.09-py3
     container_name: triton
     runtime: nvidia # Remove if using a CPU
     environment:

@@ -1,42 +1,56 @@
-# Use the base image specified in the build argument
-FROM ghcr.io/astral-sh/uv:python3.11-bookworm-slim
+########################################
+# Stage 1: Builder
+########################################
+FROM python:3.11-slim AS builder
 
-# Install the required packages
-RUN apt-get update && apt-get install -y cmake build-essential
+ENV DEBIAN_FRONTEND=noninteractive
 
-# Set the working directory
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    cmake \
+    git \
+    curl \
+    bash \
+    python3-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.local/bin:${PATH}"
+
 WORKDIR /app
 
 RUN mkdir -p /app/model_cache/
-
 ENV HF_HOME=/app/model_cache/
-
-# Install Python dependencies
 ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
+
 RUN --mount=type=cache,target=/root/.cache/uv \
-    --mount=type=bind,source=uv.lock,target=uv.lock \
-    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    --mount=type=bind,source=uv.lock,target=/app/uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=/app/pyproject.toml \
     uv sync --locked --no-install-project --no-dev
 
-# Copy the rest of the application code into the container
 COPY . /app
 COPY ./hello.sh /app/hello.sh
 
-# Create a virtual environment and install the dependencies
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked --no-dev
 
-ENV PATH="/app/.venv/bin:$PATH"
+########################################
+# Stage 2: Runtime
+########################################
+FROM python:3.11-slim AS runtime
 
-# Expose the required ports
-EXPOSE 8687
+WORKDIR /app
 
-# Create the model repository directory
+COPY --from=builder /app/.venv /app/.venv
+COPY --from=builder /app /app
+
+ENV PATH="/app/.venv/bin:${PATH}"
+ENV HF_HOME=/app/model_cache
+
 RUN mkdir -p /app/model_repository
-
-# Ensure the inference server run script is executable
 RUN chmod +x /app/start.sh
 
-# Start the app
+EXPOSE 8687
+
 CMD ["bash", "/app/start.sh"]

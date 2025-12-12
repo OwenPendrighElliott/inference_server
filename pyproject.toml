@@ -1,42 +1,42 @@
 [project]
 name = "ingrain-server"
-version = "0.2.1"
+version = "0.2.4"
 description = "Dev tools for Repo"
 readme = "README.md"
 dependencies = [
-    "ingrain>=0.2.2",
+    "ingrain>=0.2.3",
 ]
 
 [dependency-groups]
 dev = [
     "ftfy>=6.3.1",
-    "certifi>=2025.8.3",
-    "fastapi==0.116.1",
+    "certifi>=2025.11.12",
+    "fastapi==0.124.2",
     "hf-transfer==0.1.9",
-    "onnx==1.19.0",
+    "onnx==1.20.0",
     "onnxconverter-common>=1.16.0",
     "onnxoptimizer>=0.3.13",
-    "onnxscript>=0.4.0",
-    "open-clip-torch==3.1.0",
-    "orjson==3.11.3",
-    "pillow==11.3.0",
-    "pycurl==7.45.6",
-    "pydantic==2.11.7",
-    "sentence-transformers==5.1.0",
-    "timm==1.0.19",
-    "tokenizers==0.22.0",
-    "torch==2.8.0+cpu ; platform_machine == 'x86_64'",
-    "torch==2.8.0 ; platform_machine == 'aarch64'",
-    "torchvision==0.23.0+cpu ; platform_machine == 'x86_64'",
-    "torchvision==0.23.0 ; platform_machine == 'aarch64'",
-    "transformers==4.56.0",
-    "tritonclient[grpc]>=2.60.0",
-    "uvicorn==0.35.0",
+    "onnxscript>=0.5.6",
+    "open-clip-torch==3.2.0",
+    "orjson==3.11.5",
+    "pillow==12.0.0",
+    "pycurl==7.45.7",
+    "pydantic==2.12.5",
+    "sentence-transformers==5.2.0",
+    "timm==1.0.22",
+    "tokenizers==0.22.1",
+    "torch==2.9.1+cpu ; platform_machine == 'x86_64'",
+    "torch==2.9.1 ; platform_machine == 'aarch64'",
+    "torchvision==0.24.1+cpu ; platform_machine == 'x86_64'",
+    "torchvision==0.24.1 ; platform_machine == 'aarch64'",
+    "transformers==4.57.3",
+    "tritonclient[grpc]>=2.63.0",
+    "uvicorn==0.38.0",
     "validators==0.35.0",
-    "huggingface_hub[hf_xet]>=0.33.4",
-    "pytest>=8.4.1",
-    "black>=25.1.0",
-    "ruff>=0.12.11",
+    "huggingface_hub[hf_xet]>=0.36.0",
+    "pytest>=9.0.2",
+    "black>=25.12.0",
+    "ruff>=0.14.9",
 ]
 
 [[tool.uv.index]]
